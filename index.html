@@ -727,6 +727,21 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
 <div class="section" id="sec-bracket">
   <div class="sec-title">🏆 대진표</div>
 
+  <!-- 대진표 잠금 (심판/선생님만) -->
+  <div class="lock-bar" id="bracket-lock" style="margin-bottom:.9rem;">
+    <span style="font-size:1.2rem;">🔒</span>
+    <span class="lmsg">대진표 승자 입력은 심판·선생님만 가능합니다.</span>
+    <div class="lock-form">
+      <input type="password" id="bracket-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')bracketLogin()">
+      <button class="btn-pink btn-sm" onclick="bracketLogin()">잠금 해제</button>
+    </div>
+    <span id="bracket-pw-err" style="color:#e74c3c;font-size:.79rem;display:none;">❌ 틀렸습니다.</span>
+  </div>
+  <div id="bracket-unlocked-bar" style="display:none;margin-bottom:.9rem;">
+    <span class="admin-badge">🔓 심판 모드 활성화</span>
+    <button class="btn-pink btn-sm btn-gray" style="margin-left:7px;" onclick="bracketLock()">잠금</button>
+  </div>
+
   <!-- Grade tabs -->
   <div class="gtabs" id="bracket-gtabs">
     <button class="gtab g1 active" onclick="showBracketGrade(1)">1학년</button>
@@ -1075,7 +1090,7 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
       <button onclick="showTab('scores');unlockAll()" class="btn-pink btn-sm">📊 점수표</button>
       <button onclick="showTab('notice');unlockNotice()" class="btn-pink btn-sm">📣 공지판</button>
       <button onclick="showTab('roster')" class="btn-pink btn-sm">👥 선수명단</button>
-      <button onclick="showTab('bracket')" class="btn-pink btn-sm">🏆 대진표</button>
+      <button onclick="showTab('bracket');bracketUnlocked=true;document.getElementById('bracket-lock').style.display='none';document.getElementById('bracket-unlocked-bar').style.display='block';" class="btn-pink btn-sm">🏆 대진표</button>
       <button onclick="showTab('map')" class="btn-pink btn-sm">🗺️ 경기장 배치도</button>
       <button onclick="showTab('photo');voteUnlocked=true;document.getElementById('vote-lock').style.display='none';document.getElementById('vote-unlocked-bar').style.display='block';document.getElementById('photo-pending-wrap').style.display='block';renderGallery();renderPendingPhotos();" class="btn-pink btn-sm">📸 포토제닉</button>
       <button onclick="resetDefaultNotices()" class="btn-pink btn-sm" style="background:linear-gradient(90deg,#F59E0B,#D97706);">🔄 공지 초기화</button>
@@ -1213,13 +1228,30 @@ function loadLocal(){
 // ── 구글 시트에 저장 ──
 async function saveData(){
   saveLocal(); // 즉시 로컬 저장
-  // 비동기로 구글 시트에도 저장
-  gasPost('saveScores', sc);
-  gasPost('saveNotices', notices);
-  gasPost('savePhotos', photos);
-  gasPost('saveFairplay', fairplays);
-  gasPost('saveBracket', {bkWinners, bkGroupWin});
-  gasPost('saveReg', registrations);
+  try {
+    await Promise.all([
+      gasPost('saveScores', sc),
+      gasPost('saveNotices', notices),
+      gasPost('saveFairplay', fairplays),
+      gasPost('saveReg', registrations),
+      gasPost('saveBracket', {bkWinners, bkGroupWin}),
+    ]);
+  } catch(e){ console.warn('saveData error:', e); }
+}
+
+// bracket만 빠르게 저장 (대진표 클릭 시)
+async function saveBracketOnly(){
+  saveLocal();
+  try { await gasPost('saveBracket', {bkWinners, bkGroupWin}); } catch(e){}
+}
+
+// photos는 용량이 크므로 별도 처리
+async function savePhotosOnly(){
+  saveLocal();
+  try {
+    const slim = photos.map(p=>({...p, dataUrl: p.dataUrl ? p.dataUrl.substring(0,50000) : ''}));
+    await gasPost('savePhotos', slim);
+  } catch(e){ console.warn('savePhotos error:', e); }
 }
 
 // ── 구글 시트에서 불러오기 ──
@@ -2080,6 +2112,34 @@ function resolveSlot(g, slot){
   return slot;
 }
 
+// ── 대진표 잠금 ──
+let bracketUnlocked = false;
+function bracketLogin(){
+  if(document.getElementById('bracket-pw').value===ADMIN_PW){
+    bracketUnlocked=true;
+    document.getElementById('bracket-pw').value='';
+    document.getElementById('bracket-pw-err').style.display='none';
+    document.getElementById('bracket-lock').style.display='none';
+    document.getElementById('bracket-unlocked-bar').style.display='block';
+    // 모든 브래킷 탭 재빌드 (클릭 가능하게)
+    [1,2,3].forEach(g=>{
+      const el=document.getElementById(`bg${g}-content`);
+      if(el) delete el.dataset.built;
+    });
+    showBracketGrade(1);
+  } else document.getElementById('bracket-pw-err').style.display='inline';
+}
+function bracketLock(){
+  bracketUnlocked=false;
+  document.getElementById('bracket-lock').style.display='flex';
+  document.getElementById('bracket-unlocked-bar').style.display='none';
+  [1,2,3].forEach(g=>{
+    const el=document.getElementById(`bg${g}-content`);
+    if(el) delete el.dataset.built;
+  });
+  showBracketGrade(1);
+}
+
 function resetRopeBracket(g){
   if(!confirm(`${g}학년 줄달리기 대진표를 초기화할까요?`)) return;
   if(bkWinners[g]) bkWinners[g].rope={};
@@ -2090,6 +2150,7 @@ function resetRopeBracket(g){
 }
 
 function setRopeWinner(g, round, mi, team){
+  if(!bracketUnlocked){ alert('심판 모드를 먼저 활성화하세요!'); return; }
   if(!bkWinners[g]) bkWinners[g]={};
   if(!bkWinners[g].rope) bkWinners[g].rope={};
   if(!bkWinners[g].rope[round]) bkWinners[g].rope[round]={};
@@ -2105,9 +2166,8 @@ function setRopeWinner(g, round, mi, team){
     clearDownstream(g, round, mi);
   }
   rebuildRope(g);
+  saveBracketOnly();
 }
-
-// 특정 경기 결과 변경 시 그 이후 라운드 관련 결과 초기화
 function clearDownstream(g, round, mi){
   const order=['r1','sf','qf','fin'];
   const ri=order.indexOf(round);
@@ -2355,12 +2415,13 @@ function buildGroupFinalSec(g,ev){
   document.getElementById(`bk-${g}-${ev}-body`).innerHTML=html;
 }
 function selectBkGroupWinner(g,ev,gi,team){
+  if(!bracketUnlocked){ alert('심판 모드를 먼저 활성화하세요!'); return; }
   if(!bkGroupWin[g])bkGroupWin[g]={};
   if(!bkGroupWin[g][ev])bkGroupWin[g][ev]={};
-  // 같은 팀 다시 클릭 → 취소 (토글)
   if(bkGroupWin[g][ev][gi]===team) delete bkGroupWin[g][ev][gi];
   else bkGroupWin[g][ev][gi]=team;
   buildGroupFinalSec(g,ev);
+  saveBracketOnly();
 }
 
 // ════════════════════════════════════════════════
