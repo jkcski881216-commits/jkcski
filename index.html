@@ -1158,155 +1158,156 @@ const EVENTS  = ['발야구','피구','태풍의 눈','계주','단체줄넘기'
 const TABS    = ['home','schedule','scores','board','reg','roster','bracket','photo','map','notice','music','admin'];
 const ADMIN_PW= '2303';
 const GRADE_COLORS = {1:'#E91E8C',2:'#FF6B00',3:'#7B2FBE'};
-
-// ════════════════════════════════════════════════
-// 구글 시트 실시간 연동
-// ════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwg-5MWpQ_lxP_EoWGh26AwxswTD1uajDxPzeKkQYLQJCmlGRypBVVoav26N7oTrUckgQ/exec';
-
-// 상태 표시 토스트
-function showToast(msg, color='#10B981'){
-  let t=document.getElementById('gs-toast');
-  if(!t){t=document.createElement('div');t.id='gs-toast';
-    t.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:20px;color:#fff;font-size:.8rem;font-weight:700;z-index:9999;transition:opacity .4s;pointer-events:none;';
-    document.body.appendChild(t);}
-  t.style.background=color;t.textContent=msg;t.style.opacity='1';
-  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2500);
-}
-
-async function gasGet(action){
-  try{
-    const r=await fetch(`${GAS_URL}?action=${action}`,{redirect:'follow'});
-    const d=await r.json();
-    return d.ok ? JSON.parse(d.data) : null;
-  }catch(e){console.warn('gasGet error:',action,e);return null;}
-}
-async function gasPost(action, data){
-  try{
-    // GET 방식으로 전송 (CORS 우회)
-    const encoded=encodeURIComponent(JSON.stringify(data));
-    const r=await fetch(`${GAS_URL}?action=${action}&data=${encoded}`,{redirect:'follow'});
-    const d=await r.json();
-    return d.ok;
-  }catch(e){console.warn('gasPost error:',action,e);return false;}
-}
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxliiu_cFdcgS55ufuFIjeyAkyUmhzTD4IsggNeCB-4t3H_0gAlArT85sAiFAcTov6jIw/exec';
 
 // ════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════
-let sc = {}, notices = [], songs = [], registrations = [];
+let sc={}, notices=[], songs=[], registrations=[];
+let photos=[], fairplays=[], bkWinners={}, bkGroupWin={}, jumpScores={};
 let adminMode=false, scoreUnlocked=false, noticeUnlocked=false;
-let photos=[], fairplays=[], fpUnlocked=false;
-let bkWinners={}, bkGroupWin={}, jumpScores={};
+let bracketUnlocked=false, fpUnlocked=false, voteUnlocked=false;
+let _cbIdx=0;
 
-// localStorage 백업도 유지 (오프라인 대비)
+// ── 토스트 ──
+function showToast(msg,color='#10B981'){
+  let t=document.getElementById('gs-toast');
+  if(!t){t=document.createElement('div');t.id='gs-toast';
+    t.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:20px;color:#fff;font-size:.8rem;font-weight:700;z-index:9999;transition:opacity .4s;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.2);';
+    document.body.appendChild(t);}
+  t.style.background=color;t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2800);
+}
+
+// ════════════════════════════════════════════════
+// JSONP 통신 (CORS 완전 우회)
+// ════════════════════════════════════════════════
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cbName='_cb'+(_cbIdx++);
+    const timer=setTimeout(()=>{
+      delete window[cbName];
+      const s=document.getElementById(cbName);if(s)s.remove();
+      reject(new Error('timeout'));
+    },15000);
+    window[cbName]=(data)=>{
+      clearTimeout(timer);
+      delete window[cbName];
+      const s=document.getElementById(cbName);if(s)s.remove();
+      resolve(data);
+    };
+    const qs=Object.entries({...params,callback:cbName})
+      .map(([k,v])=>k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):String(v))).join('&');
+    const s=document.createElement('script');
+    s.id=cbName;s.src=GAS_URL+'?'+qs;
+    s.onerror=()=>{clearTimeout(timer);delete window[cbName];reject(new Error('load error'));};
+    document.head.appendChild(s);
+  });
+}
+
+async function gasSet(action,data){
+  try{const r=await jsonp({action,data:JSON.stringify(data)});return r&&r.ok;}
+  catch(e){console.warn('gasSet',action,e);return false;}
+}
+
+function tryParse(v,def){try{const p=JSON.parse(v);return p??def;}catch{return def;}}
+
+// ── 전체 로드 ──
+async function loadFromCloud(){
+  showToast('🔄 데이터 불러오는 중...','#C77DFF');
+  try{
+    const r=await jsonp({action:'getAll'});
+    if(!r||!r.ok){showToast('⚠️ 서버 연결 실패. 로컬 사용 중','#e74c3c');return;}
+    let changed=false;
+    const cs=tryParse(r.scores,null);
+    if(cs&&typeof cs==='object'&&Object.keys(cs).length>0){sc=cs;changed=true;}
+    const cn=tryParse(r.notices,null);
+    if(Array.isArray(cn)&&cn.length>0){notices=cn;changed=true;}
+    const cr=tryParse(r.reg,null);
+    if(Array.isArray(cr)&&cr.length>0){registrations=cr;changed=true;}
+    const cp=tryParse(r.photos,null);
+    if(Array.isArray(cp)&&cp.length>0){photos=cp;changed=true;}
+    const cf=tryParse(r.fairplay,null);
+    if(Array.isArray(cf)&&cf.length>0){fairplays=cf;changed=true;}
+    const cb=tryParse(r.bracket,null);
+    if(cb&&typeof cb==='object'){
+      if(cb.bkWinners)bkWinners=cb.bkWinners;
+      if(cb.bkGroupWin)bkGroupWin=cb.bkGroupWin;
+      changed=true;
+    }
+    const cm=tryParse(r.songs,null);
+    if(Array.isArray(cm)&&cm.length>0){songs=cm;changed=true;}
+    saveLocal();
+    if(changed){
+      // 점수 구조 보정
+      for(const g in GRADES){
+        if(!sc[g]||sc[g].length!==GRADES[g].n){sc[g]=[];for(let c=0;c<GRADES[g].n;c++)sc[g].push(Array(EVENTS.length).fill(0));}
+        sc[g].forEach((row,ci)=>{if(!Array.isArray(row)||row.length!==EVENTS.length)sc[g][ci]=Array(EVENTS.length).fill(0);});
+      }
+      buildTables();
+      renderNotices();renderHomeNotices();
+      renderGallery();renderFairplay();
+      renderBoards();renderHomeTop();renderFloatScore();
+      renderRoster();renderMusic();updateRegBadge();
+      showToast('✅ 최신 데이터 반영!','#10B981');
+    } else {
+      showToast('✅ 이미 최신 상태','#10B981');
+    }
+  }catch(e){
+    console.warn('loadFromCloud:',e);
+    showToast('⚠️ 연결 오류 - 로컬 사용 중','#F59E0B');
+  }
+}
+
+// ── 저장 ──
 function saveLocal(){
   try{
-    localStorage.setItem('sf_scores',JSON.stringify(sc));
-    localStorage.setItem('sf_notices',JSON.stringify(notices));
-    localStorage.setItem('sf_songs',JSON.stringify(songs));
-    localStorage.setItem('sf_reg',JSON.stringify(registrations));
-    localStorage.setItem('sf_photos',JSON.stringify(photos.map(p=>({...p,dataUrl:p.dataUrl?.slice(0,500)}))));
-    localStorage.setItem('sf_fp',JSON.stringify(fairplays));
-    localStorage.setItem('sf_bracket',JSON.stringify({bkWinners,bkGroupWin}));
+    localStorage.setItem('sf2_sc',JSON.stringify(sc));
+    localStorage.setItem('sf2_no',JSON.stringify(notices));
+    localStorage.setItem('sf2_so',JSON.stringify(songs));
+    localStorage.setItem('sf2_re',JSON.stringify(registrations));
+    localStorage.setItem('sf2_fp',JSON.stringify(fairplays));
+    localStorage.setItem('sf2_bk',JSON.stringify({bkWinners,bkGroupWin}));
   }catch(e){}
 }
 function loadLocal(){
   try{
-    const s=localStorage.getItem('sf_scores');if(s)sc=JSON.parse(s);
-    const n=localStorage.getItem('sf_notices');
-    if(n){const p=JSON.parse(n);if(Array.isArray(p)&&p.length>0)notices=p;}
-    const m=localStorage.getItem('sf_songs');if(m)songs=JSON.parse(m);
-    const r=localStorage.getItem('sf_reg');if(r)registrations=JSON.parse(r);
-    const ph=localStorage.getItem('sf_photos');if(ph)photos=JSON.parse(ph);
-    const fp=localStorage.getItem('sf_fp');if(fp)fairplays=JSON.parse(fp);
-    const bk=localStorage.getItem('sf_bracket');
-    if(bk){const d=JSON.parse(bk);bkWinners=d.bkWinners||{};bkGroupWin=d.bkGroupWin||{};}
+    const s=localStorage.getItem('sf2_sc');if(s)sc=JSON.parse(s);
+    const n=localStorage.getItem('sf2_no');if(n){const p=JSON.parse(n);if(Array.isArray(p)&&p.length>0)notices=p;}
+    const m=localStorage.getItem('sf2_so');if(m)songs=JSON.parse(m);
+    const r=localStorage.getItem('sf2_re');if(r)registrations=JSON.parse(r);
+    const f=localStorage.getItem('sf2_fp');if(f)fairplays=JSON.parse(f);
+    const bk=localStorage.getItem('sf2_bk');if(bk){const d=JSON.parse(bk);bkWinners=d.bkWinners||{};bkGroupWin=d.bkGroupWin||{};}
   }catch(e){}
 }
 
-// ── 구글 시트에 저장 ──
 async function saveData(){
-  saveLocal(); // 즉시 로컬 저장
-  try {
+  saveLocal();
+  try{
     await Promise.all([
-      gasPost('saveScores', sc),
-      gasPost('saveNotices', notices),
-      gasPost('saveFairplay', fairplays),
-      gasPost('saveReg', registrations),
-      gasPost('saveBracket', {bkWinners, bkGroupWin}),
+      gasSet('saveScores',sc),
+      gasSet('saveNotices',notices),
+      gasSet('saveReg',registrations),
+      gasSet('saveFairplay',fairplays),
+      gasSet('saveSongs',songs),
     ]);
-  } catch(e){ console.warn('saveData error:', e); }
+  }catch(e){console.warn('saveData:',e);}
 }
-
-// bracket만 빠르게 저장 (대진표 클릭 시)
 async function saveBracketOnly(){
   saveLocal();
-  try { await gasPost('saveBracket', {bkWinners, bkGroupWin}); } catch(e){}
+  try{await gasSet('saveBracket',{bkWinners,bkGroupWin});}catch(e){console.warn('saveBracket:',e);}
 }
-
-// photos는 용량이 크므로 별도 처리
 async function savePhotosOnly(){
   saveLocal();
-  try {
-    const slim = photos.map(p=>({...p, dataUrl: p.dataUrl ? p.dataUrl.substring(0,50000) : ''}));
-    await gasPost('savePhotos', slim);
-  } catch(e){ console.warn('savePhotos error:', e); }
+  try{await gasSet('savePhotos',photos);}catch(e){console.warn('savePhotos:',e);}
 }
+function savePhotos(){savePhotosOnly();}
+function saveFairplays(){saveLocal();gasSet('saveFairplay',fairplays).catch(()=>{});}
 
-// ── 구글 시트에서 불러오기 ──
-async function loadFromCloud(){
-  showToast('🔄 최신 데이터 불러오는 중...','#C77DFF');
-  let updated=false;
-
-  const [cloudScores, cloudNotices, cloudPhotos, cloudFP, cloudBracket, cloudReg] = await Promise.all([
-    gasGet('getScores'),
-    gasGet('getNotices'),
-    gasGet('getPhotos'),
-    gasGet('getFairplay'),
-    gasGet('getBracket'),
-    gasGet('getReg'),
-  ]);
-
-  if(cloudScores && Object.keys(cloudScores).length>0){sc=cloudScores;updated=true;}
-  if(cloudNotices && cloudNotices.length>0){notices=cloudNotices;updated=true;}
-  if(cloudPhotos && cloudPhotos.length>0){photos=cloudPhotos;updated=true;}
-  if(cloudFP && cloudFP.length>0){fairplays=cloudFP;updated=true;}
-  if(cloudBracket && (cloudBracket.bkWinners||cloudBracket.bkGroupWin)){
-    if(cloudBracket.bkWinners) bkWinners=cloudBracket.bkWinners;
-    if(cloudBracket.bkGroupWin) bkGroupWin=cloudBracket.bkGroupWin;
-    updated=true;
-  }
-  if(cloudReg && cloudReg.length>0){registrations=cloudReg;updated=true;}
-
-  if(updated){
-    saveLocal();
-    // UI 전체 갱신
-    buildTables();
-    renderNotices();renderHomeNotices();
-    renderGallery();renderFairplay();
-    renderBoards();renderHomeTop();renderFloatScore();
-    renderRoster();renderMusic();
-    showToast('✅ 최신 데이터 반영 완료!','#10B981');
-  } else {
-    showToast('✅ 이미 최신 상태입니다','#10B981');
-  }
-}
-
-function savePhotos(){ saveData(); }
-function saveFairplays(){ saveData(); }
-
-function initSc() {
+function initSc(){
   for(const g in GRADES){sc[g]=[];for(let c=0;c<GRADES[g].n;c++)sc[g].push(Array(EVENTS.length).fill(0));}
 }
-
-// ── 실시간 자동 갱신 (30초마다) ──
-function startAutoRefresh(){
-  setInterval(()=>{
-    loadFromCloud();
-  }, 30000);
-}
-
+function startAutoRefresh(){setInterval(loadFromCloud,30000);}
 // ════════════════════════════════════════════════
 // TABS
 // ════════════════════════════════════════════════
@@ -1717,7 +1718,6 @@ function renderRoster(){
   const clf=document.getElementById('rf-class').value;
   const evf=document.getElementById('rf-event').value;
 
-  // update class dropdown based on grade
   const csel=document.getElementById('rf-class');
   const prevCl=csel.value;
   csel.innerHTML='<option value="">전체 반</option>';
@@ -1725,49 +1725,99 @@ function renderRoster(){
   if(gNum) for(let i=1;i<=GRADES[gNum].n;i++) csel.innerHTML+=`<option value="${i}">${i}반</option>`;
   if(prevCl) csel.value=prevCl;
 
-  // flatten all entries into a display list grouped by class
-  // collect: {grade, cls, events:{ev:[names]}}
-  let grouped={};
-  registrations.forEach(r=>{
-    const key=`${r.grade}-${r.cls}`;
-    if(!grouped[key]) grouped[key]={grade:r.grade,cls:r.cls,events:{}};
-    if(r.type==='class'){
-      Object.entries(r.events).forEach(([ev,names])=>{
-        if(!grouped[key].events[ev]) grouped[key].events[ev]=[];
-        grouped[key].events[ev].push(...names);
-      });
-    } else {
-      r.events.forEach(ev=>{
-        if(!grouped[key].events[ev]) grouped[key].events[ev]=[];
-        grouped[key].events[ev].push(r.name);
-      });
-    }
-  });
-
-  let list=Object.values(grouped);
-  if(gf) list=list.filter(e=>String(e.grade)===gf);
-  if(clf) list=list.filter(e=>String(e.cls)===clf);
-  if(evf) list=list.filter(e=>e.events[evf]);
-  list.sort((a,b)=>a.grade-b.grade||a.cls-b.cls);
-
   const el=document.getElementById('roster-list');
   const cnt=document.getElementById('roster-count');
-  cnt.textContent=`총 ${list.length}개 학급`;
 
-  if(!list.length){el.innerHTML='<div class="empty">조건에 맞는 신청 내역이 없습니다.</div>';return;}
-  el.innerHTML=list.map(e=>{
-    const col=GRADE_COLORS[e.grade];
-    const evTags=Object.keys(e.events).map(ev=>`<span class="ev-tag" style="background:${col}22;color:${col};border:1px solid ${col}44;">${ev}</span>`).join('');
-    const evDetails=Object.entries(e.events).map(([ev,names])=>`<div style="margin-bottom:.3rem;"><span style="font-size:.78rem;font-weight:700;color:${col};">${ev}</span> <span class="roster-names">${names.join(', ')}</span></div>`).join('');
-    return `<div class="roster-card">
-      <div class="roster-card-header">
-        <span class="rc-grade" style="background:${col};">${e.grade}학년</span>
-        <span class="rc-class">${e.grade}-${e.cls}반</span>
-        <div class="roster-event-row" style="margin:0;flex:1;">${evTags}</div>
-      </div>
-      ${evDetails}
-    </div>`;
-  }).join('');
+  // 관리자 모드면 원본 신청건 목록으로 수정/삭제 가능하게
+  if(adminMode || scoreUnlocked){
+    // 관리자: 개별 신청건별로 표시
+    let list=[...registrations];
+    if(gf) list=list.filter(r=>String(r.grade)===gf);
+    if(clf) list=list.filter(r=>String(r.cls)===clf);
+    if(evf) list=list.filter(r=>r.type==='class'?r.events[evf]:r.events.includes(evf));
+    list.sort((a,b)=>a.grade-b.grade||a.cls-b.cls);
+    cnt.textContent=`총 ${list.length}건 (관리자 모드 - 수정/삭제 가능)`;
+    if(!list.length){el.innerHTML='<div class="empty">신청 내역이 없습니다.</div>';return;}
+    el.innerHTML=list.map((r,i)=>{
+      const col=GRADE_COLORS[r.grade];
+      const ridx=registrations.indexOf(r);
+      const evList=r.type==='class'
+        ? Object.entries(r.events).map(([ev,names])=>`<div style="font-size:.8rem;"><b style="color:${col};">${ev}</b>: ${names.join(', ')}</div>`).join('')
+        : `<div style="font-size:.8rem;"><b style="color:${col};">종목</b>: ${r.events.join(', ')}</div>`;
+      return `<div class="roster-card" style="border-color:${col}44;">
+        <div class="roster-card-header">
+          <span class="rc-grade" style="background:${col};">${r.grade}학년</span>
+          <span class="rc-class">${r.grade}-${r.cls}반</span>
+          <span style="font-size:.72rem;color:var(--muted);flex:1;margin-left:.4rem;">${r.type==='class'?`반 신청 (${r.rep})`:`개인 (${r.name})`}</span>
+          <div style="display:flex;gap:.3rem;">
+            <button onclick="editReg(${ridx})" style="background:linear-gradient(90deg,var(--pink),var(--purple));color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:.72rem;font-weight:700;cursor:pointer;">✏️ 수정</button>
+            <button onclick="deleteReg(${ridx})" style="background:linear-gradient(90deg,#e74c3c,#c0392b);color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:.72rem;font-weight:700;cursor:pointer;">🗑 삭제</button>
+          </div>
+        </div>
+        ${evList}
+      </div>`;
+    }).join('');
+  } else {
+    // 일반: 학급별로 묶어서 표시
+    let grouped={};
+    registrations.forEach(r=>{
+      const key=`${r.grade}-${r.cls}`;
+      if(!grouped[key]) grouped[key]={grade:r.grade,cls:r.cls,events:{}};
+      if(r.type==='class'){
+        Object.entries(r.events).forEach(([ev,names])=>{
+          if(!grouped[key].events[ev]) grouped[key].events[ev]=[];
+          grouped[key].events[ev].push(...names);
+        });
+      } else {
+        r.events.forEach(ev=>{
+          if(!grouped[key].events[ev]) grouped[key].events[ev]=[];
+          grouped[key].events[ev].push(r.name);
+        });
+      }
+    });
+    let list=Object.values(grouped);
+    if(gf) list=list.filter(e=>String(e.grade)===gf);
+    if(clf) list=list.filter(e=>String(e.cls)===clf);
+    if(evf) list=list.filter(e=>e.events[evf]);
+    list.sort((a,b)=>a.grade-b.grade||a.cls-b.cls);
+    cnt.textContent=`총 ${list.length}개 학급`;
+    if(!list.length){el.innerHTML='<div class="empty">조건에 맞는 신청 내역이 없습니다.</div>';return;}
+    el.innerHTML=list.map(e=>{
+      const col=GRADE_COLORS[e.grade];
+      const evTags=Object.keys(e.events).map(ev=>`<span class="ev-tag" style="background:${col}22;color:${col};border:1px solid ${col}44;">${ev}</span>`).join('');
+      const evDetails=Object.entries(e.events).map(([ev,names])=>`<div style="margin-bottom:.3rem;"><span style="font-size:.78rem;font-weight:700;color:${col};">${ev}</span> <span class="roster-names">${names.join(', ')}</span></div>`).join('');
+      return `<div class="roster-card">
+        <div class="roster-card-header">
+          <span class="rc-grade" style="background:${col};">${e.grade}학년</span>
+          <span class="rc-class">${e.grade}-${e.cls}반</span>
+          <div class="roster-event-row" style="margin:0;flex:1;">${evTags}</div>
+        </div>
+        ${evDetails}
+      </div>`;
+    }).join('');
+  }
+}
+
+function deleteReg(idx){
+  if(!confirm('이 신청 내역을 삭제할까요?'))return;
+  registrations.splice(idx,1);
+  saveData();renderRoster();renderAdminRegSummary();updateRegBadge();
+  showToast('🗑 삭제되었습니다','#e74c3c');
+}
+
+function editReg(idx){
+  const r=registrations[idx];
+  if(!r)return;
+  // 편집 모달 표시
+  const evList=r.type==='class'
+    ? Object.entries(r.events).map(([ev,names])=>`${ev}: ${names.join(', ')}`).join('\n')
+    : r.events.join(', ');
+  const newVal=prompt(`✏️ 수정 (${r.grade}-${r.cls}반)\n\n현재 내용:\n${evList}\n\n※ 복잡한 수정은 삭제 후 다시 신청해주세요.\n\n담당자/이름 수정:`, r.rep||r.name||'');
+  if(newVal===null)return;
+  if(r.type==='class') r.rep=newVal;
+  else r.name=newVal;
+  saveData();renderRoster();
+  showToast('✅ 수정되었습니다','#10B981');
 }
 
 function exportCSV(){
@@ -2628,15 +2678,15 @@ function renderFairplay(){
     </div>`).join('');
 }
 
-// load & init
-loadLocal(); // 로컬 먼저 (빠른 초기 렌더)
+// ── INIT ──
+loadLocal();
 initSc();
 for(const g in GRADES){
   if(!sc[g]||sc[g].length!==GRADES[g].n){sc[g]=[];for(let c=0;c<GRADES[g].n;c++)sc[g].push(Array(EVENTS.length).fill(0));}
-  sc[g].forEach((row,ci)=>{if(row.length!==EVENTS.length)sc[g][ci]=Array(EVENTS.length).fill(0);});
+  sc[g].forEach((row,ci)=>{if(!Array.isArray(row)||row.length!==EVENTS.length)sc[g][ci]=Array(EVENTS.length).fill(0);});
 }
 
-const DEFAULT_NOTICES = [
+const DEFAULT_NOTICES=[
   {t:'📢',tx:'2026학년도 북원여고 스포츠축제에 참여하는 모두 고생이 많습니다! 충분한 휴식과 수분 섭취 잊지 마세요. 💧'},
   {t:'🍱',tx:'점심식사는 12:20부터 13:20까지입니다. 점심식사 전에 꼭 손을 씻읍시다. 🙌'},
   {t:'⚠️',tx:'경기 진행에 방해가 되지 않도록 라인 밖에서 경기를 관람해 주세요.'},
@@ -2646,25 +2696,20 @@ const DEFAULT_NOTICES = [
   {t:'🚨',tx:'응급상황 대처 ① 즉시 119 신고 및 보건선생님·담당교사에게 보고 ② 이동 가능 시 보건교사 판단에 따라 근처 병원 이송 ③ 이동 불가 시 구급차 대기'},
   {t:'🎤',tx:'13:20~13:30 찬조공연 — 리드 · 기수단 공연이 진행됩니다. 많은 응원 부탁드립니다! 🌟'},
 ];
-
-// 공지 기본값 (클라우드 공지 없을 때만)
-if(!notices || notices.length === 0) {
-  const now = new Date();
-  notices = DEFAULT_NOTICES.map((n,i) => ({
-    t: n.t, tx: n.tx,
-    time: new Date(now.getTime() - i * 60000).toISOString()
-  }));
+if(!notices||notices.length===0){
+  const now=new Date();
+  notices=DEFAULT_NOTICES.map((n,i)=>({t:n.t,tx:n.tx,time:new Date(now.getTime()-i*60000).toISOString()}));
 }
 
 function resetDefaultNotices(){
-  if(!confirm('공지사항을 기본 내용으로 초기화할까요?')) return;
+  if(!confirm('공지사항을 기본 내용으로 초기화할까요?'))return;
   const now=new Date();
   notices=DEFAULT_NOTICES.map((n,i)=>({t:n.t,tx:n.tx,time:new Date(now.getTime()-i*60000).toISOString()}));
   saveData();renderNotices();renderHomeNotices();
-  alert('공지사항이 기본 내용으로 초기화되었습니다.');
+  showToast('✅ 공지 초기화 완료','#10B981');
 }
 
-// 초기 UI 렌더
+// 초기 UI (로컬 데이터로 즉시 렌더)
 buildTables();
 buildClassEventChips();
 buildSelfEventChips();
@@ -2674,18 +2719,11 @@ renderGallery();renderFairplay();
 updateRegBadge();
 updateCountdown();
 
-// 클라우드에서 최신 데이터 불러오기 (비동기)
-loadFromCloud().then(()=>{
-  buildTables();
-  renderNotices();renderHomeNotices();
-  renderGallery();renderFairplay();
-  renderBoards();renderHomeTop();renderFloatScore();
-  renderRoster();renderMusic();
-});
+// 클라우드 최신 데이터 로드 (비동기 - loadFromCloud가 완료 후 refreshAllUI 호출)
+loadFromCloud();
 
-// 자동 갱신 시작 (30초마다)
+// 자동 갱신 + 타이머
 startAutoRefresh();
-
 setInterval(updateSch,60000);
 setInterval(renderFloatScore,30000);
 setInterval(updateCountdown,1000);
