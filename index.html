@@ -332,7 +332,7 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
   <h1>북원여고 교내 스포츠축제</h1>
   <p class="hero-sub">함께해서 더 빛나는 우리들의 축제 💕</p>
   <div class="hero-meta">
-    <span>📅 2026년 5월 21일 (목)</span>
+    <span>📅 2026년 5월 28일 (목)</span>
     <span>📍 교내 체육관 &amp; 운동장</span>
     <span>🎯 전교생 및 교직원</span>
   </div>
@@ -389,7 +389,7 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
 <!-- ══ HOME ══ -->
 <div class="section active" id="sec-home">
   <div class="info-grid">
-    <div class="info-card"><div class="label">📅 일시</div><div class="value">2026. 5. 21 (목)</div></div>
+    <div class="info-card"><div class="label">📅 일시</div><div class="value">2026. 5. 28 (목)</div></div>
     <div class="info-card"><div class="label">📍 장소</div><div class="value">교내 체육관 / 운동장</div></div>
     <div class="info-card"><div class="label">🎯 대상</div><div class="value">전교생 및 교직원</div></div>
     <div class="info-card" style="cursor:pointer;" onclick="loadFromCloud().then(()=>{buildTables();renderNotices();renderHomeNotices();renderGallery();renderFairplay();renderBoards();renderHomeTop();renderFloatScore();renderRoster();renderMusic();})">
@@ -568,142 +568,24 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
 <!-- ══ REGISTRATION ══ -->
 <div class="section" id="sec-reg">
   <div class="sec-title">📋 선수 신청</div>
-
-  <!-- mode toggle -->
-  <div class="reg-mode-tabs">
-    <button class="reg-mode-tab active" id="mode-tab-class" onclick="setRegMode('class')">🏫 반 전체 신청 (반장/담당자용)</button>
-    <button class="reg-mode-tab" id="mode-tab-self" onclick="setRegMode('self')">🙋‍♀️ 개인 신청</button>
-  </div>
-
-  <!-- ── CLASS MODE ── -->
-  <div id="reg-class-mode">
-    <!-- Step bar -->
-    <div class="step-bar" id="class-stepbar">
-      <div><div class="step-dot active" id="cs0">1</div><div class="step-label">학급선택</div></div>
-      <div class="step-line" id="csl0"></div>
-      <div><div class="step-dot" id="cs1">2</div><div class="step-label">종목선택</div></div>
-      <div class="step-line" id="csl1"></div>
-      <div><div class="step-dot" id="cs2">3</div><div class="step-label">명단입력</div></div>
-      <div class="step-line" id="csl2"></div>
-      <div><div class="step-dot" id="cs3">4</div><div class="step-label">확인·제출</div></div>
-    </div>
-
-    <!-- Step 0: 학급 -->
-    <div class="reg-step active" id="creg-0">
-      <div class="form-row">
-        <div class="form-group"><label>학년 *</label>
-          <select id="c-grade" onchange="updateCClass()"><option value="">-- 선택 --</option><option>1</option><option>2</option><option>3</option></select>
-        </div>
-        <div class="form-group"><label>반 *</label>
-          <select id="c-class"><option value="">-- 선택 --</option></select>
-        </div>
-      </div>
-      <div class="form-group"><label>담당자 이름 *</label><input type="text" id="c-name" placeholder="반장 또는 담당자 이름"></div>
-      <div class="step-nav"><button class="btn-pink" onclick="classStep(1)">다음 →</button></div>
-    </div>
-
-    <!-- Step 1: 종목 -->
-    <div class="reg-step" id="creg-1">
-      <div class="form-group">
-        <label>참가 종목 선택 * <span style="font-size:.78rem;color:var(--muted);font-weight:400;">(중복 선택 가능)</span></label>
-        <div class="event-chips" id="class-event-chips"></div>
-      </div>
-      <div class="step-nav">
-        <button class="btn-pink btn-gray btn-sm" onclick="classStep(0)">← 이전</button>
-        <button class="btn-pink" onclick="classStep(2)">다음 →</button>
-      </div>
-    </div>
-
-    <!-- Step 2: 명단 -->
-    <div class="reg-step" id="creg-2">
-      <div id="class-player-slots"></div>
-      <div class="step-nav">
-        <button class="btn-pink btn-gray btn-sm" onclick="classStep(1)">← 이전</button>
-        <button class="btn-pink" onclick="classStep(3)">다음 →</button>
-      </div>
-    </div>
-
-    <!-- Step 3: 확인 -->
-    <div class="reg-step" id="creg-3">
-      <div class="reg-summary" id="class-summary"></div>
-      <p style="font-size:.81rem;color:var(--muted);margin-bottom:.9rem;">⚠️ 제출 후에는 담당 선생님께 문의해야 수정이 가능합니다.</p>
-      <div class="step-nav">
-        <button class="btn-pink btn-gray btn-sm" onclick="classStep(2)">← 이전</button>
-        <button class="btn-pink btn-mint" onclick="submitClassReg()">✅ 제출하기</button>
-      </div>
-    </div>
-
-    <!-- Done -->
-    <div class="reg-step" id="creg-done">
-      <div style="text-align:center;padding:2rem 1rem;">
-        <div style="font-size:3rem;margin-bottom:1rem;">🎉</div>
-        <div style="font-size:1.2rem;font-weight:700;color:var(--pink);margin-bottom:.5rem;">신청 완료!</div>
-        <div style="font-size:.86rem;color:var(--muted);margin-bottom:1.5rem;">선수명단이 성공적으로 접수되었습니다.<br>명단확인 탭에서 확인하세요!</div>
-        <button class="btn-pink" onclick="resetClassReg()">새로 신청하기</button>
-        <button class="btn-pink btn-gray" style="margin-left:8px;" onclick="showTab('roster')">명단 확인하기 →</button>
-      </div>
+  <div style="background:var(--card);border-radius:16px;padding:1.4rem;box-shadow:0 2px 16px rgba(255,107,157,.08);margin-bottom:1rem;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:.8rem;">📝</div>
+    <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:.5rem;color:var(--text);">구글 폼으로 선수 신청하기</h3>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;line-height:1.6;">
+      아래 버튼을 눌러 구글 폼에서 신청해주세요.<br>
+      신청 완료 후 명단확인 탭에서 확인하세요.
+    </p>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSc7FDST6TsOicwNrIa9_VJyn2GjFmiAZT2jtMlpyM_17Ol46Q/viewform" target="_blank"
+      style="display:inline-block;background:linear-gradient(90deg,var(--pink),var(--purple));color:#fff;text-align:center;padding:.9rem 2rem;border-radius:12px;font-size:1rem;font-weight:700;text-decoration:none;box-shadow:0 4px 15px rgba(255,107,157,.4);">
+      📝 선수 신청하기
+    </a>
+    <div style="margin-top:1rem;padding:.7rem;background:#FFF0F5;border-radius:8px;font-size:.78rem;color:var(--muted);">
+      💡 신청 후 홈 화면의 <b>🔄 탭하여 새로고침</b>을 누르면 명단에 반영됩니다
     </div>
   </div>
-
-  <!-- ── SELF MODE ── -->
-  <div id="reg-self-mode" style="display:none;">
-    <div class="step-bar" id="self-stepbar">
-      <div><div class="step-dot active" id="ss0">1</div><div class="step-label">내 정보</div></div>
-      <div class="step-line" id="ssl0"></div>
-      <div><div class="step-dot" id="ss1">2</div><div class="step-label">종목선택</div></div>
-      <div class="step-line" id="ssl1"></div>
-      <div><div class="step-dot" id="ss2">3</div><div class="step-label">확인·제출</div></div>
-    </div>
-
-    <!-- Step 0 -->
-    <div class="reg-step active" id="sreg-0">
-      <div class="form-row3">
-        <div class="form-group"><label>학년 *</label>
-          <select id="s-grade" onchange="updateSClass()"><option value="">--</option><option>1</option><option>2</option><option>3</option></select>
-        </div>
-        <div class="form-group"><label>반 *</label>
-          <select id="s-class"><option value="">--</option></select>
-        </div>
-        <div class="form-group"><label>번호 *</label>
-          <input type="number" id="s-num" placeholder="번호" min="1" max="40">
-        </div>
-      </div>
-      <div class="form-group"><label>이름 *</label><input type="text" id="s-name" placeholder="이름을 입력하세요"></div>
-      <div class="step-nav"><button class="btn-pink" onclick="selfStep(1)">다음 →</button></div>
-    </div>
-
-    <!-- Step 1 -->
-    <div class="reg-step" id="sreg-1">
-      <div class="form-group">
-        <label>참가 종목 선택 * <span style="font-size:.78rem;color:var(--muted);font-weight:400;">(중복 선택 가능)</span></label>
-        <div class="event-chips" id="self-event-chips"></div>
-      </div>
-      <div class="step-nav">
-        <button class="btn-pink btn-gray btn-sm" onclick="selfStep(0)">← 이전</button>
-        <button class="btn-pink" onclick="selfStep(2)">다음 →</button>
-      </div>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="reg-step" id="sreg-2">
-      <div class="reg-summary" id="self-summary"></div>
-      <div class="step-nav">
-        <button class="btn-pink btn-gray btn-sm" onclick="selfStep(1)">← 이전</button>
-        <button class="btn-pink btn-mint" onclick="submitSelfReg()">✅ 제출하기</button>
-      </div>
-    </div>
-
-    <!-- Done -->
-    <div class="reg-step" id="sreg-done">
-      <div style="text-align:center;padding:2rem 1rem;">
-        <div style="font-size:3rem;margin-bottom:1rem;">🎉</div>
-        <div style="font-size:1.2rem;font-weight:700;color:var(--pink);margin-bottom:.5rem;">신청 완료!</div>
-        <div style="font-size:.86rem;color:var(--muted);margin-bottom:1.5rem;">참가 신청이 완료되었습니다!</div>
-        <button class="btn-pink" onclick="resetSelfReg()">새로 신청하기</button>
-        <button class="btn-pink btn-gray" style="margin-left:8px;" onclick="showTab('roster')">명단 확인하기 →</button>
-      </div>
-    </div>
-  </div>
+  <button onclick="showTab('roster')" style="width:100%;padding:.85rem;border-radius:12px;font-size:.95rem;background:linear-gradient(90deg,var(--pink),var(--purple));color:#fff;border:none;font-family:inherit;font-weight:700;cursor:pointer;">
+    👥 명단확인 바로가기
+  </button>
 </div>
 
 <!-- ══ ROSTER ══ -->
@@ -1323,6 +1205,8 @@ async function loadFromCloud(){
       try{renderGallery();renderFairplay();}catch(e){console.warn('gallery:',e);}
       try{renderBoards();renderHomeTop();renderFloatScore();}catch(e){console.warn('boards:',e);}
       try{if(!Array.isArray(registrations))registrations=[];renderRoster();}catch(e){console.warn('roster:',e);}
+    // 구글 폼 응답 별도 로드
+    loadFormResponses();
       try{renderMusic();updateRegBadge();}catch(e){console.warn('music:',e);}
       showToast('✅ 최신 데이터 반영!','#10B981');
     } else {
@@ -1375,8 +1259,64 @@ async function savePhotosOnly(){
   saveLocal();
   try{await gasSet('savePhotos',photos);}catch(e){console.warn('savePhotos:',e);}
 }
-function savePhotos(){savePhotosOnly();}
-function saveFairplays(){saveLocal();gasSet('saveFairplay',fairplays).catch(()=>{});}
+// ── 구글 폼 응답을 명단 형식으로 변환 ──
+async function loadFormResponses(){
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=reg`;
+    const resp=await fetch(url);
+    const text=await resp.text();
+    const m=text.match(/setResponse\((\{.+\})\)/s);
+    if(!m) return;
+    const json=JSON.parse(m[1]);
+    if(!json.table||!json.table.rows) return;
+
+    const cols=json.table.cols.map(c=>c.label||'');
+    // 열 인덱스 찾기
+    const g1Idx=cols.findIndex(c=>c.includes('1학년'));
+    const g2Idx=cols.findIndex(c=>c.includes('2학년'));
+    const g3Idx=cols.findIndex(c=>c.includes('3학년'));
+    const nameIdx=cols.findIndex(c=>c.includes('이름'));
+    // 종목 열들
+    const evIdxs=[];
+    cols.forEach((c,i)=>{
+      if(c.includes('종목')||c.includes('피구')||c.includes('발야구')||
+         c.includes('줄달리기')||c.includes('태풍')||c.includes('단체줄넘기')||
+         c.includes('계주')) evIdxs.push({i,label:c.replace('종목 [','').replace(']','').replace('종목[','').trim()});
+    });
+
+    const newRegs=[];
+    json.table.rows.forEach(row=>{
+      const c=row.c||[];
+      const val=i=>c[i]&&c[i].v!=null?String(c[i].v):'';
+
+      // 학년/반 파악
+      let grade=0, cls=0;
+      if(g1Idx>=0&&val(g1Idx)){grade=1;cls=parseInt(val(g1Idx))||0;}
+      else if(g2Idx>=0&&val(g2Idx)){grade=2;cls=parseInt(val(g2Idx))||0;}
+      else if(g3Idx>=0&&val(g3Idx)){grade=3;cls=parseInt(val(g3Idx))||0;}
+
+      if(!grade||!cls) return;
+
+      const name=nameIdx>=0?val(nameIdx):'';
+      // 선택한 종목들
+      const events=[];
+      evIdxs.forEach(({i,label})=>{
+        if(val(i)) events.push(label||val(i));
+      });
+
+      newRegs.push({
+        type:'self',grade,cls,num:0,name,
+        events,ts:val(0)||new Date().toISOString()
+      });
+    });
+
+    if(newRegs.length>0){
+      registrations=newRegs;
+      saveLocal();
+      renderRoster();updateRegBadge();
+    }
+  }catch(e){console.warn('loadFormResponses:',e);}
+}
 
 function initSc(){
   for(const g in GRADES){sc[g]=[];for(let c=0;c<GRADES[g].n;c++)sc[g].push(Array(EVENTS.length).fill(0));}
@@ -1405,8 +1345,8 @@ function showTab(id) {
 // ════════════════════════════════════════════════
 // COUNTDOWN
 // ════════════════════════════════════════════════
-const CD_TARGET = new Date('2026-05-21T08:20:00');
-const CD_END    = new Date('2026-05-21T17:00:00');
+const CD_TARGET = new Date('2026-05-28T08:20:00');
+const CD_END    = new Date('2026-05-28T17:00:00');
 function updateCountdown() {
   const now=new Date(), diff=CD_TARGET-now;
   const boxes=document.getElementById('cd-boxes'), done=document.getElementById('cd-done');
@@ -2800,9 +2740,13 @@ updateCountdown();
 
 // 클라우드 최신 데이터 로드 (비동기 - loadFromCloud가 완료 후 refreshAllUI 호출)
 loadFromCloud();
+// 구글 폼 응답 로드
+loadFormResponses();
 
 // 자동 갱신 + 타이머
 startAutoRefresh();
+// 폼 응답도 30초마다 갱신
+setInterval(loadFormResponses, 30000);
 setInterval(updateSch,60000);
 setInterval(renderFloatScore,30000);
 setInterval(updateCountdown,1000);
