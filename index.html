@@ -1229,9 +1229,15 @@ function jsonp(params){
 
 async function gasSet(action,data){
   try{
-    const r=await jsonp({action,data:JSON.stringify(data)});
-    return r&&r.ok;
-  }catch(e){console.warn('gasSet',action,e);return false;}
+    const json=JSON.stringify(data);
+    const url=GAS_URL+'?action='+encodeURIComponent(action)+'&data='+encodeURIComponent(json)+'&callback=_dummy';
+    // no-cors fetch로 전송 (응답은 못 받지만 Apps Script는 받음)
+    await fetch(url,{method:'GET',mode:'no-cors'});
+    return true;
+  }catch(e){
+    console.warn('gasSet',action,e);
+    return false;
+  }
 }
 
 async function gasGet(action){
