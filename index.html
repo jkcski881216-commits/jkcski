@@ -1181,8 +1181,31 @@ function showToast(msg,color='#10B981'){
 
 // ════════════════════════════════════════════════
 // ════════════════════════════════════════════════
-// 구글 시트 통신 - 순수 JSONP script 태그 방식
+// 구글 시트 통신
+// 읽기: Google Sheets JSON Feed (CORS 없음)
+// 쓰기: Apps Script JSONP
 // ════════════════════════════════════════════════
+const SHEET_ID = '1qy5MUQ5kCwIedy4B3FQM-wHwC_DSorgoT8nwyrjJNc4';
+
+// 구글 시트 탭에서 데이터 읽기 (JSON feed - 공개 시트만 가능)
+async function readSheet(tabName){
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+    const resp=await fetch(url);
+    const text=await resp.text();
+    // google 응답은 /*O_o*/
+google.visualization.Query.setResponse({...}) 형태
+    const m=text.match(/google\.visualization\.Query\.setResponse\((.+)\);?\s*$/s);
+    if(!m) return null;
+    const json=JSON.parse(m[1]);
+    if(!json.table||!json.table.rows||!json.table.rows.length) return null;
+    // A1 셀 값 반환
+    const val=json.table.rows[0].c[0]&&json.table.rows[0].c[0].v;
+    return val||null;
+  }catch(e){console.warn('readSheet',tabName,e);return null;}
+}
+
+// Apps Script JSONP로 쓰기
 function jsonp(params){
   return new Promise((resolve,reject)=>{
     const cbName='_cb'+(_cbIdx++);
@@ -1200,20 +1223,10 @@ function jsonp(params){
     const qs=Object.entries({...params,callback:cbName})
       .map(([k,v])=>k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):String(v))).join('&');
     const s=document.createElement('script');
-    s.id=cbName;
-    s.src=GAS_URL+'?'+qs;
+    s.id=cbName;s.src=GAS_URL+'?'+qs;
     s.onerror=()=>{clearTimeout(timer);delete window[cbName];s.remove();reject(new Error('load error'));};
     document.head.appendChild(s);
   });
-}
-
-async function gasGet(action){
-  try{
-    const r=await jsonp({action});
-    if(!r||!r.ok) return null;
-    if(action==='getAll') return r;
-    try{return JSON.parse(r.data);}catch{return r.data;}
-  }catch(e){console.warn('gasGet',action,e);return null;}
 }
 
 async function gasSet(action,data){
@@ -1223,13 +1236,36 @@ async function gasSet(action,data){
   }catch(e){console.warn('gasSet',action,e);return false;}
 }
 
+async function gasGet(action){
+  // 읽기는 Google Sheets JSON Feed 사용
+  const tabMap={
+    getScores:'scores',getNotices:'notices',getReg:'reg',
+    getPhotos:'photos',getFairplay:'fairplay',getBracket:'bracket',getSongs:'songs'
+  };
+  if(tabMap[action]){
+    const val=await readSheet(tabMap[action]);
+    if(val) return JSON.parse(val);
+    return null;
+  }
+  return null;
+}
+
 function tryParse(v,def){try{const p=JSON.parse(v);return p??def;}catch{return def;}}
 
 async function loadFromCloud(){
   showToast('🔄 데이터 불러오는 중...','#C77DFF');
   try{
-    const r=await jsonp({action:'getAll'});
-    if(!r||!r.ok){showToast('⚠️ 서버 연결 실패. 로컬 사용 중','#e74c3c');return;}
+    // 각 탭 병렬 읽기
+    const [rScores,rNotices,rReg,rPhotos,rFairplay,rBracket,rSongs]=await Promise.all([
+      readSheet('scores'),readSheet('notices'),readSheet('reg'),
+      readSheet('photos'),readSheet('fairplay'),readSheet('bracket'),readSheet('songs')
+    ]);
+    const r={ok:true,
+      scores:rScores||'{}',notices:rNotices||'[]',reg:rReg||'[]',
+      photos:rPhotos||'[]',fairplay:rFairplay||'[]',
+      bracket:rBracket||'{}',songs:rSongs||'[]'
+    };
+    if(!r){showToast('⚠️ 서버 연결 실패. 로컬 사용 중','#e74c3c');return;}
     let changed=false;
     const cs=tryParse(r.scores,null);
     if(cs&&typeof cs==='object'&&Object.keys(cs).length>0){sc=cs;changed=true;}
