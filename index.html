@@ -1228,16 +1228,39 @@ function jsonp(params){
 }
 
 async function gasSet(action,data){
-  try{
-    const json=JSON.stringify(data);
-    const url=GAS_URL+'?action='+encodeURIComponent(action)+'&data='+encodeURIComponent(json)+'&callback=_dummy';
-    // no-cors fetch로 전송 (응답은 못 받지만 Apps Script는 받음)
-    await fetch(url,{method:'GET',mode:'no-cors'});
-    return true;
-  }catch(e){
-    console.warn('gasSet',action,e);
-    return false;
-  }
+  return new Promise((resolve)=>{
+    try{
+      const cbName='_cb'+(_cbIdx++);
+      const json=JSON.stringify(data);
+      const qs='action='+encodeURIComponent(action)+'&data='+encodeURIComponent(json)+'&callback='+cbName;
+      
+      const timer=setTimeout(()=>{
+        delete window[cbName];
+        const s=document.getElementById(cbName);if(s)s.remove();
+        resolve(false);
+      },10000);
+      
+      window[cbName]=(d)=>{
+        clearTimeout(timer);
+        delete window[cbName];
+        const s=document.getElementById(cbName);if(s)s.remove();
+        resolve(d&&d.ok);
+      };
+      
+      const s=document.createElement('script');
+      s.id=cbName;
+      // GAS_URL 대신 직접 script.googleusercontent.com 도메인으로는 못 가니까
+      // fetch로 리다이렉트된 URL을 먼저 알아낸 다음 script 태그로 삽입
+      fetch(GAS_URL+'?'+qs,{method:'GET',mode:'no-cors',redirect:'follow'})
+        .then(()=>{
+          // no-cors는 응답 못 받음 - 그냥 성공으로 처리
+          clearTimeout(timer);
+          delete window[cbName];
+          resolve(true);
+        })
+        .catch(()=>resolve(false));
+    }catch(e){resolve(false);}
+  });
 }
 
 async function gasGet(action){
