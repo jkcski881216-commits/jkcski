@@ -1190,18 +1190,16 @@ const SHEET_ID = '1qy5MUQ5kCwIedy4B3FQM-wHwC_DSorgoT8nwyrjJNc4';
 // 구글 시트 탭에서 데이터 읽기 (JSON feed - 공개 시트만 가능)
 async function readSheet(tabName){
   try{
-    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&range=A1`;
     const resp=await fetch(url);
     const text=await resp.text();
-    // google 응답은 /*O_o*/
-google.visualization.Query.setResponse({...}) 형태
-    const m=text.match(/google\.visualization\.Query\.setResponse\((.+)\);?\s*$/s);
+    const m=text.match(/setResponse\((\{.+\})\)/s);
     if(!m) return null;
     const json=JSON.parse(m[1]);
     if(!json.table||!json.table.rows||!json.table.rows.length) return null;
-    // A1 셀 값 반환
-    const val=json.table.rows[0].c[0]&&json.table.rows[0].c[0].v;
-    return val||null;
+    const row=json.table.rows[0];
+    if(!row.c||!row.c[0]||row.c[0].v===null||row.c[0].v===undefined) return null;
+    return String(row.c[0].v);
   }catch(e){console.warn('readSheet',tabName,e);return null;}
 }
 
@@ -1273,6 +1271,7 @@ async function loadFromCloud(){
     if(Array.isArray(cn)&&cn.length>0){notices=cn;changed=true;}
     const cr=tryParse(r.reg,null);
     if(Array.isArray(cr)&&cr.length>0){registrations=cr;changed=true;}
+    else if(!Array.isArray(registrations)) registrations=[];
     const cp=tryParse(r.photos,null);
     if(Array.isArray(cp)&&cp.length>0){photos=cp;changed=true;}
     const cf=tryParse(r.fairplay,null);
