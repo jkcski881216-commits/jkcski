@@ -369,7 +369,7 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
       <div class="cd-sep">:</div>
       <div class="cd-box"><span class="cd-num" id="cd-s">--</span><span class="cd-lbl">초</span></div>
     </div>
-    <div id="cd-done">🎉 지금 스포츠축제 진행 중! 🎉</div>
+    <div id="cd-done" style="display:none;">🎉 지금 스포츠축제 진행 중! 🎉</div>
   </div>
 </div>
 
@@ -1439,15 +1439,36 @@ function showTab(id) {
 const CD_TARGET = new Date('2026-05-28T09:00:00');
 const CD_END    = new Date('2026-05-28T17:00:00');
 function updateCountdown() {
-  const now=new Date(), diff=CD_TARGET-now;
-  const boxes=document.getElementById('cd-boxes'), done=document.getElementById('cd-done');
-  if(now>=CD_END){boxes.style.display='none';done.style.display='block';done.textContent='🏆 스포츠축제가 마무리되었습니다! 수고하셨어요 🌸';return;}
-  if(diff<=0){boxes.style.display='none';done.style.display='block';return;}
-  const d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
-  document.getElementById('cd-d').textContent=String(d).padStart(2,'0');
-  document.getElementById('cd-h').textContent=String(h).padStart(2,'0');
-  document.getElementById('cd-m').textContent=String(m).padStart(2,'0');
-  document.getElementById('cd-s').textContent=String(s).padStart(2,'0');
+  try{
+    const now=new Date();
+    const target=new Date('2026-05-28T09:00:00');
+    const endTime=new Date('2026-05-28T17:00:00');
+    const boxes=document.getElementById('cd-boxes');
+    const done=document.getElementById('cd-done');
+    if(!boxes||!done) return;
+    if(now>=endTime){
+      boxes.style.display='none';done.style.display='block';
+      done.textContent='🏆 스포츠축제가 마무리되었습니다! 수고하셨어요 🌸';return;
+    }
+    const diff=target-now;
+    if(diff<=0){
+      boxes.style.display='none';done.style.display='block';
+      done.textContent='🎉 스포츠축제가 진행 중입니다!';return;
+    }
+    boxes.style.display='flex';done.style.display='none';
+    const d=Math.floor(diff/86400000);
+    const h=Math.floor((diff%86400000)/3600000);
+    const m=Math.floor((diff%3600000)/60000);
+    const s=Math.floor((diff%60000)/1000);
+    const cd=document.getElementById('cd-d');
+    const ch=document.getElementById('cd-h');
+    const cm=document.getElementById('cd-m');
+    const cs=document.getElementById('cd-s');
+    if(cd)cd.textContent=String(d).padStart(2,'0');
+    if(ch)ch.textContent=String(h).padStart(2,'0');
+    if(cm)cm.textContent=String(m).padStart(2,'0');
+    if(cs)cs.textContent=String(s).padStart(2,'0');
+  }catch(e){console.warn('countdown:',e);}
 }
 
 // ════════════════════════════════════════════════
@@ -2253,7 +2274,17 @@ const BK_EV_ORDER=['rope','jump','typhoon','relay'];
 // bkWinners, bkGroupWin, jumpScores 는 위 STATE 섹션에서 선언됨
 
 function bkCls(g){return Array.from({length:BK_CLASSES[g]},(_,i)=>`${g}-${i+1}반`);}
-function bkSplit3(arr){const g=[[],[],[]];arr.forEach((v,i)=>g[i%3].push(v));return g;}
+function bkSplit3(arr, seed=0){
+  // seed 값에 따라 다르게 섞기
+  const shuffled=[...arr];
+  let s=seed+1;
+  for(let i=shuffled.length-1;i>0;i--){
+    s=(s*1664525+1013904223)&0xffffffff;
+    const j=Math.abs(s)%(i+1);
+    [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];
+  }
+  const g=[[],[],[]];shuffled.forEach((v,i)=>g[i%3].push(v));return g;
+}
 function bkSlots(teams){let s=1;while(s<teams.length)s*=2;return [...teams,...Array(s-teams.length).fill('부전승')];}
 
 function showBracketGrade(g){
@@ -2304,7 +2335,7 @@ function buildBracketGrade(g){
 
 /* ── 단체줄넘기: 측정 순서 + 기록지 ── */
 function buildJumpSec(g){
-  const teams=bkCls(g), groups=bkSplit3(teams);
+  const teams=bkCls(g), groups=bkSplit3(teams, 42);
   const gcol=['#3B82F6','#10B981','#F59E0B'];
   const gname=['1조','2조','3조'];
   let html=`<div class="bk-info">💡 측정 순서: 1조→2조→3조 &nbsp;|&nbsp; 각 조 2회 측정 &nbsp;|&nbsp; 높은 기록이 최종</div>`;
@@ -2688,7 +2719,10 @@ function rebuildRope(g){
 /* ── 태풍의 눈 / 계주: 3조 예선 → 결승 ── */
 function buildGroupFinalSec(g,ev){
   const col=BK_GR_COL[g],ecol=BK_EV_COL[ev];
-  const teams=bkCls(g),groups=bkSplit3(teams);
+  // 종목마다 다른 seed로 조 편성
+  const evSeeds={typhoon:7,relay:13,jump:42};
+  const seed=(evSeeds[ev]||1)*(g*3);
+  const teams=bkCls(g),groups=bkSplit3(teams,seed);
   const gcol=['#3B82F6','#10B981','#F59E0B'],gname=['A조','B조','C조'];
   let html=`<div class="bk-info">💡 3개 조 측정 · 각 조 1위 클릭 선택 → 결승 진출</div>`;
   html+=`<div class="gf-grid">`;
