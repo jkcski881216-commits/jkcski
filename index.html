@@ -568,24 +568,93 @@ footer{text-align:center;padding:1.5rem 1rem;font-size:11px;color:var(--muted);b
 <!-- ══ REGISTRATION ══ -->
 <div class="section" id="sec-reg">
   <div class="sec-title">📋 선수 신청</div>
-  <div style="background:var(--card);border-radius:16px;padding:1.4rem;box-shadow:0 2px 16px rgba(255,107,157,.08);margin-bottom:1rem;text-align:center;">
-    <div style="font-size:3rem;margin-bottom:.8rem;">📝</div>
-    <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:.5rem;color:var(--text);">구글 폼으로 선수 신청하기</h3>
-    <p style="font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;line-height:1.6;">
-      아래 버튼을 눌러 구글 폼에서 신청해주세요.<br>
-      신청 완료 후 명단확인 탭에서 확인하세요.
-    </p>
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLSc7FDST6TsOicwNrIa9_VJyn2GjFmiAZT2jtMlpyM_17Ol46Q/viewform" target="_blank"
-      style="display:inline-block;background:linear-gradient(90deg,var(--pink),var(--purple));color:#fff;text-align:center;padding:.9rem 2rem;border-radius:12px;font-size:1rem;font-weight:700;text-decoration:none;box-shadow:0 4px 15px rgba(255,107,157,.4);">
-      📝 선수 신청하기
-    </a>
-    <div style="margin-top:1rem;padding:.7rem;background:#FFF0F5;border-radius:8px;font-size:.78rem;color:var(--muted);">
-      💡 신청 후 홈 화면의 <b>🔄 탭하여 새로고침</b>을 누르면 명단에 반영됩니다
+
+  <div class="reg-mode-tabs">
+    <button class="reg-mode-tab active" id="mode-tab-class" onclick="setRegMode('class')">🏫 반 전체 신청 (반장/담당자용)</button>
+    <button class="reg-mode-tab" id="mode-tab-self" onclick="setRegMode('self')">🙋‍♀️ 개인 신청</button>
+  </div>
+
+  <!-- ── CLASS MODE ── -->
+  <div id="reg-class-mode">
+    <div class="reg-steps">
+      <div class="reg-step active" data-step="0"><span class="step-num">1</span><span class="step-label">학급선택</span></div>
+      <div class="reg-step" data-step="1"><span class="step-num">2</span><span class="step-label">종목선택</span></div>
+      <div class="reg-step" data-step="2"><span class="step-num">3</span><span class="step-label">명단입력</span></div>
+      <div class="reg-step" data-step="3"><span class="step-num">4</span><span class="step-label">확인·제출</span></div>
+    </div>
+    <!-- Step 0: 학급 선택 -->
+    <div class="reg-page active" id="rcp-0">
+      <div class="reg-field-row">
+        <div class="reg-field"><label class="reg-label">학년 <span class="req">*</span></label>
+          <select id="rc-grade" class="reg-sel" onchange="rcUpdateClass()">
+            <option value="">--</option><option>1</option><option>2</option><option>3</option>
+          </select></div>
+        <div class="reg-field"><label class="reg-label">반 <span class="req">*</span></label>
+          <select id="rc-class" class="reg-sel"><option value="">--</option></select></div>
+      </div>
+      <div class="reg-field"><label class="reg-label">담당자(반장) 이름 <span class="req">*</span></label>
+        <input id="rc-rep" class="reg-inp" placeholder="이름 입력"></div>
+      <button class="btn-pink reg-next" onclick="rcNext(0)">다음 →</button>
+    </div>
+    <!-- Step 1: 종목 선택 -->
+    <div class="reg-page" id="rcp-1">
+      <p class="reg-hint">신청할 종목을 선택하세요 (복수 선택 가능)</p>
+      <div id="rc-ev-chips" class="ev-chip-wrap"></div>
+      <button class="btn-pink reg-next" onclick="rcNext(1)">다음 →</button>
+      <button class="btn-outline reg-prev" onclick="rcPrev(1)">← 이전</button>
+    </div>
+    <!-- Step 2: 명단 입력 -->
+    <div class="reg-page" id="rcp-2">
+      <p class="reg-hint">종목별 선수 명단을 입력하세요 (쉼표로 구분)</p>
+      <div id="rc-name-inputs"></div>
+      <button class="btn-pink reg-next" onclick="rcNext(2)">다음 →</button>
+      <button class="btn-outline reg-prev" onclick="rcPrev(2)">← 이전</button>
+    </div>
+    <!-- Step 3: 확인·제출 -->
+    <div class="reg-page" id="rcp-3">
+      <div id="rc-preview" class="reg-preview"></div>
+      <button class="btn-pink reg-next" onclick="submitClassReg()">✅ 제출하기</button>
+      <button class="btn-outline reg-prev" onclick="rcPrev(3)">← 이전</button>
     </div>
   </div>
-  <button onclick="showTab('roster')" style="width:100%;padding:.85rem;border-radius:12px;font-size:.95rem;background:linear-gradient(90deg,var(--pink),var(--purple));color:#fff;border:none;font-family:inherit;font-weight:700;cursor:pointer;">
-    👥 명단확인 바로가기
-  </button>
+
+  <!-- ── SELF MODE ── -->
+  <div id="reg-self-mode" style="display:none;">
+    <div class="reg-steps">
+      <div class="reg-step active" data-step="0"><span class="step-num">1</span><span class="step-label">내 정보</span></div>
+      <div class="reg-step" data-step="1"><span class="step-num">2</span><span class="step-label">종목선택</span></div>
+      <div class="reg-step" data-step="2"><span class="step-num">3</span><span class="step-label">확인·제출</span></div>
+    </div>
+    <!-- Step 0 -->
+    <div class="reg-page active" id="rsp-0">
+      <div class="reg-field-row">
+        <div class="reg-field"><label class="reg-label">학년 <span class="req">*</span></label>
+          <select id="rs-grade" class="reg-sel" onchange="rsUpdateClass()">
+            <option value="">--</option><option>1</option><option>2</option><option>3</option>
+          </select></div>
+        <div class="reg-field"><label class="reg-label">반 <span class="req">*</span></label>
+          <select id="rs-class" class="reg-sel"><option value="">--</option></select></div>
+        <div class="reg-field"><label class="reg-label">번호 <span class="req">*</span></label>
+          <input id="rs-num" class="reg-inp" type="number" min="1" max="40" placeholder="번호"></div>
+      </div>
+      <div class="reg-field"><label class="reg-label">이름 <span class="req">*</span></label>
+        <input id="rs-name" class="reg-inp" placeholder="이름을 입력하세요"></div>
+      <button class="btn-pink reg-next" onclick="rsNext(0)">다음 →</button>
+    </div>
+    <!-- Step 1 -->
+    <div class="reg-page" id="rsp-1">
+      <p class="reg-hint">신청할 종목을 선택하세요</p>
+      <div id="rs-ev-chips" class="ev-chip-wrap"></div>
+      <button class="btn-pink reg-next" onclick="rsNext(1)">다음 →</button>
+      <button class="btn-outline reg-prev" onclick="rsPrev(1)">← 이전</button>
+    </div>
+    <!-- Step 2 -->
+    <div class="reg-page" id="rsp-2">
+      <div id="rs-preview" class="reg-preview"></div>
+      <button class="btn-pink reg-next" onclick="submitSelfReg()">✅ 제출하기</button>
+      <button class="btn-outline reg-prev" onclick="rsPrev(2)">← 이전</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══ ROSTER ══ -->
