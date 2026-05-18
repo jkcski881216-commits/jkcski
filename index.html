@@ -1286,15 +1286,15 @@ async function loadFromCloud(){
     if(Array.isArray(cm)&&cm.length>0){songs=cm;changed=true;}
     saveLocal();
     if(changed){
-      for(const g in GRADES){
+      try{for(const g in GRADES){
         if(!sc[g]||sc[g].length!==GRADES[g].n){sc[g]=[];for(let c=0;c<GRADES[g].n;c++)sc[g].push(Array(EVENTS.length).fill(0));}
         sc[g].forEach((row,ci)=>{if(!Array.isArray(row)||row.length!==EVENTS.length)sc[g][ci]=Array(EVENTS.length).fill(0);});
-      }
-      buildTables();
-      renderNotices();renderHomeNotices();
-      renderGallery();renderFairplay();
-      renderBoards();renderHomeTop();renderFloatScore();
-      renderRoster();renderMusic();updateRegBadge();
+      }buildTables();}catch(e){console.warn('buildTables:',e);}
+      try{renderNotices();renderHomeNotices();}catch(e){console.warn('notices:',e);}
+      try{renderGallery();renderFairplay();}catch(e){console.warn('gallery:',e);}
+      try{renderBoards();renderHomeTop();renderFloatScore();}catch(e){console.warn('boards:',e);}
+      try{if(!Array.isArray(registrations))registrations=[];renderRoster();}catch(e){console.warn('roster:',e);}
+      try{renderMusic();updateRegBadge();}catch(e){console.warn('music:',e);}
       showToast('✅ 최신 데이터 반영!','#10B981');
     } else {
       showToast('✅ 이미 최신 상태','#10B981');
@@ -1759,6 +1759,9 @@ function updateRegBadge(){
 // ROSTER VIEW
 // ════════════════════════════════════════════════
 function renderRoster(){
+  // 안전장치: registrations가 배열이 아니면 초기화
+  if(!Array.isArray(registrations)) registrations=[];
+
   const gf=document.getElementById('rf-grade').value;
   const clf=document.getElementById('rf-class').value;
   const evf=document.getElementById('rf-event').value;
@@ -1804,6 +1807,7 @@ function renderRoster(){
     }).join('');
   } else {
     // 일반: 학급별로 묶어서 표시
+    if(!Array.isArray(registrations)) registrations=[];
     let grouped={};
     registrations.forEach(r=>{
       const key=`${r.grade}-${r.cls}`;
